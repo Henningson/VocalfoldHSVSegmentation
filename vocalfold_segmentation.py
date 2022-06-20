@@ -1,13 +1,10 @@
 import numpy as np
 import cv2
-import main
-import helper
-import Camera
-import matplotlib.pyplot as plt
 
 from sklearn.mixture import GaussianMixture
-import scipy.stats as stats
 
+def normalize(arr):
+    return (arr - arr.min()) / (arr.max() - arr.min())
 
 class IlluminationFunction:
     def __init__(self, m, b):
@@ -16,7 +13,7 @@ class IlluminationFunction:
 
     def transform_image(self, image):
         reflection_image = (image.astype(np.float64) / (self.m * image.astype(np.float64) + self.b))
-        return helper.normalize(reflection_image)
+        return normalize(reflection_image)
 
 
 class HSVGlottisSegmentator:
@@ -109,7 +106,6 @@ class HSVGlottisSegmentator:
         for imageA, imageB in zip(self.images[0:self.num_images-1], self.images[1:self.num_images]):
             intensityMap += np.abs(imageA.astype(np.int32) - imageB.astype(np.int32))
 
-        norm = helper.normalize(intensityMap)
         return intensityMap
 
     def enhanceContrast(self, image):
