@@ -47,22 +47,21 @@ class HSVGlottisSegmentator:
 
         return self.gaussianMixture.predict(reflection_image.reshape(-1, 1)).reshape(reflection_image.shape[0], reflection_image.shape[1])
 
-    def generate(self, isSilicone=False, plot=False):
+    def generate(self, plot=False):
         self.intensityMap = self.generateIntensityMap(plot)
         self.intensityMap = cv2.blur(self.intensityMap, (9, 9)) #We gaussian filter, instead of median filtering
         Mx = self.getMaxX(self.intensityMap)
         My = self.getMaxY(self.intensityMap)
         union = np.concatenate([Mx, My])
 
-        horizontalSliceInterval = 1 if not isSilicone else 45
+        horizontalSliceInterval = 1
 
         mean = np.mean(union)
         std = np.std(union)
 
         binarized = np.where(self.intensityMap > mean + std, 255, 0).astype(np.uint8)
         
-        if not isSilicone:
-            self.generateROI(binarized)
+        self.generateROI(binarized)
 
         roiImage = self.images[0][self.roiY:self.roiY+self.roiHeight, self.roiX:self.roiX+self.roiWidth]
 
@@ -174,8 +173,8 @@ class HSVGlottisSegmentator:
         A = np.vstack(np.vstack([x, np.ones(len(x))]).T)
         m, c = np.linalg.lstsq(A, y, rcond=None)[0]
 
-        upperPoint = np.array([m*x.min() + c, x.min()])
-        lowerPoint = np.array([m*x.max() + c, x.max()])
+        upperPoint = np.array([m*x.min() + c, x.min()]) + np.array([self.roiX, self.roiY])
+        lowerPoint = np.array([m*x.max() + c, x.max()]) + np.array([self.roiX, self.roiY])
 
         return upperPoint, lowerPoint
 
