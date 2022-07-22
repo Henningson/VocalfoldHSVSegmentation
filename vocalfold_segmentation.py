@@ -47,13 +47,11 @@ class HSVGlottisSegmentator:
 
         return self.gaussianMixture.predict(reflection_image.reshape(-1, 1)).reshape(reflection_image.shape[0], reflection_image.shape[1])
 
-
     def gen_segmentation_image(self, image):
         base = np.zeros(self.images[0].shape, np.uint8)
         base[self.roiY:self.roiY+self.roiHeight, self.roiX:self.roiX+self.roiWidth] = (1 - image).astype(np.uint8)*255
         return base
         
-
     def generate(self, isSilicone=False, plot=False):
         self.intensityMap = self.generateIntensityMap(plot)
         self.intensityMap = cv2.blur(self.intensityMap, (9, 9)) #We gaussian filter, instead of median filtering
@@ -61,15 +59,14 @@ class HSVGlottisSegmentator:
         My = self.getMaxY(self.intensityMap)
         union = np.concatenate([Mx, My])
 
-        horizontalSliceInterval = 1 if not isSilicone else 45
+        horizontalSliceInterval = 1
 
         mean = np.mean(union)
         std = np.std(union)
 
         binarized = np.where(self.intensityMap > mean + std, 255, 0).astype(np.uint8)
         
-        if not isSilicone:
-            self.generateROI(binarized)
+        self.generateROI(binarized)
 
         roiImage = self.images[0][self.roiY:self.roiY+self.roiHeight, self.roiX:self.roiX+self.roiWidth]
 
