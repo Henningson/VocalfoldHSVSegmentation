@@ -47,6 +47,13 @@ class HSVGlottisSegmentator:
 
         return self.gaussianMixture.predict(reflection_image.reshape(-1, 1)).reshape(reflection_image.shape[0], reflection_image.shape[1])
 
+
+    def gen_segmentation_image(self, image):
+        base = np.zeros(self.images[0].shape, np.uint8)
+        base[self.roiY:self.roiY+self.roiHeight, self.roiX:self.roiX+self.roiWidth] = (1 - image).astype(np.uint8)*255
+        return base
+        
+
     def generate(self, isSilicone=False, plot=False):
         self.intensityMap = self.generateIntensityMap(plot)
         self.intensityMap = cv2.blur(self.intensityMap, (9, 9)) #We gaussian filter, instead of median filtering
@@ -143,6 +150,20 @@ class HSVGlottisSegmentator:
         self.roiWidth = sorted_stats[-2][1][2]
         self.roiHeight = sorted_stats[-2][1][3]
 
+        self.roiX = self.roiX+self.roiWidth//2 - self.roiWidth * 2
+        self.roiWidth = 4*self.roiWidth
+
+        if self.roiY < 0:
+            self.roiY = 0
+
+        if self.roiX < 0:
+            self.roiX = 0
+
+        if self.roiY+self.roiHeight >= self.images[0].shape[0]:
+            self.roiHeight = self.images[0].shape[0] - self.roiY - 2
+        if self.roiX+self.roiWidth >= self.images[0].shape[1]:
+            self.roiWidth = self.images[0].shape[1] - self.roiX - 2
+
     def getROI(self):
         return self.roiX, self.roiWidth, self.roiY, self.roiHeight
 
@@ -160,8 +181,12 @@ class HSVGlottisSegmentator:
         
         return glottis_closed_at_frame
 
-    def getGlottalMidline(self, frame):
-        segmentation = self.segment_image(self.illum.transform_image(frame))
+    def getGlottalMidline(self, image, isSegmented=True):
+        segmentation = None
+        if not isSegmented:
+            segmentation = self.segment_image(self.illum.transform_image(image))
+        else:
+            segmentation = image
 
         white_points = np.argwhere(segmentation == 0)
 
@@ -174,8 +199,8 @@ class HSVGlottisSegmentator:
         A = np.vstack(np.vstack([x, np.ones(len(x))]).T)
         m, c = np.linalg.lstsq(A, y, rcond=None)[0]
 
-        upperPoint = np.array([m*x.min() + c, x.min()])
-        lowerPoint = np.array([m*x.max() + c, x.max()])
+        upperPoint = np.array([self.roiX + m*x.min() + c, self.roiY + x.min()])
+        lowerPoint = np.array([self.roiX + m*x.max() + c, self.roiY + x.max()])
 
         return upperPoint, lowerPoint
 
@@ -186,6 +211,8 @@ class HSVGlottisSegmentator:
             return None
 
         segmentation = cv2.copyMakeBorder(segmentation, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=1)
+
+        print("Segmentation Shape:" + str(segmentation.shape))
 
         contours, hierarchy = cv2.findContours(segmentation.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -200,4 +227,7 @@ class HSVGlottisSegmentator:
             contourArray = np.concatenate(contour_points, axis=0)
         else:
             contourArray = contour_points[0]
-        return contourArray - np.ones(contourArray.shape)
+
+        print(contourArray - np.ones(contourArray.shape) + np.array([[self.roiX, self.roiX]]))
+        print((contourArray - np.ones(contourArray.shape)))
+        return contourArray - np.ones(contourArray.shape) + np.array([[self.roiX, self.roiY]])
